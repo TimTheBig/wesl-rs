@@ -493,12 +493,20 @@ impl StandardResolver {
         self.constants.insert(name.to_string(), value);
     }
 
+    // todo add tests
     fn generate_constant_module(&self) -> String {
         self.constants
             .iter()
-            .map(|(name, value)| format!("const {name} = {value};"))
-            .format("\n")
-            .to_string()
+            .map(|(name, value)| {
+                // make sure there is always a decimal point
+                let val_str = if value.fract() == 0.0 {
+                    format_args!("{value:.1}")
+                } else {
+                    format_args!("{value}")
+                };
+                format!("const {name} = {val_str};")
+            })
+            .join("\n")
     }
 }
 
