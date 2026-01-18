@@ -3,7 +3,7 @@ import bevy::pbr::{
     forward_io::VertexOutput,
 };
 
-import bevy::render::maths::PI;
+import constants::TAU;
 
 @if(TONEMAP_IN_SHADER)
 import bevy::core_pipeline::tonemapping::tone_mapping;
@@ -16,12 +16,12 @@ fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
     uv.y = uv.y * (1.0 + 1.0 / steps);
     let ratio = 2.0;
     
-    let h = PI * 2.0 * floor(1.0 + steps * uv.y) / steps;
+    let h = TAU * floor(1.0 + steps * uv.y) / steps;
     let L = floor(uv.x * steps * ratio) / (steps * ratio) - 0.5;
     
     var color = vec3(0.0);
     if uv.y < 1.0 { 
-        color = cos(h + vec3(0.0, 1.0, 2.0) * PI * 2.0 / 3.0);
+        color = cos(h + vec3(0.0, 1.0, 2.0) * TAU / 3.0);
         let maxRGB = max(color.r, max(color.g, color.b));
         let minRGB = min(color.r, min(color.g, color.b));
         color = exp(15.0 * L) * (color - minRGB) / (maxRGB - minRGB);

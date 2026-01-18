@@ -439,8 +439,8 @@ pub fn bevy_case(path: PathBuf) -> Result<(), libtest_mimic::Failed> {
             ("TONEMAPPING_LUT_SAMPLER_BINDING_INDEX", 10.into()),
         ])
         .add_constant(
-            // unused AbstractFloat just here for add_constant testing
-            "PI", std::f64::consts::PI.into(),
+            // AbstractFloat for add_constant testing
+            "TAU", std::f64::consts::TAU.into(),
         )
         .add_constant(
             // unused f32 just here for add_constant testing
