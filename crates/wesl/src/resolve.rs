@@ -2,6 +2,7 @@ use crate::{Diagnostic, Error};
 
 use itertools::Itertools;
 use wgsl_parse::syntax::{ModulePath, PathOrigin, TranslationUnit};
+use wgsl_types::inst::LiteralInstance;
 
 use std::{
     borrow::Cow,
@@ -463,7 +464,7 @@ impl Resolver for PkgResolver {
 pub struct StandardResolver {
     pkg: PkgResolver,
     files: FileResolver,
-    constants: HashMap<String, f64>,
+    constants: HashMap<String, LiteralInstance>,
 }
 
 impl StandardResolver {
@@ -487,25 +488,22 @@ impl StandardResolver {
     ///
     /// Numeric constants live WESL's special package named `constants`. This package is
     /// *virtual*, meaning it doesn't exist on the filesystem. Constants can be accessed
-    /// by importing them: `import constants::MY_CONSTANT;`. All constants are of type
-    /// AbstractFloat, which can be implicitly converted to all scalar types.
-    pub fn add_constant(&mut self, name: impl ToString, value: f64) {
+    /// by importing them: `import constants::MY_CONSTANT;`.
+    ///
+    /// The type is specified by the variant of [`LiteralInstance`].
+    /// If specifying a constant that is used with multiple different types or a math constant use AbstractFloat,
+    /// which can be implicitly converted to all scalar types.
+    ///
+    /// Note: [`LiteralInstance`] implements [`From`] for all standard numeric types
+    pub fn add_constant(&mut self, name: impl ToString, value: LiteralInstance) {
         self.constants.insert(name.to_string(), value);
     }
 
-    // todo add tests
+    // todo add more tests
     fn generate_constant_module(&self) -> String {
         self.constants
             .iter()
-            .map(|(name, value)| {
-                // make sure there is always a decimal point
-                let val_str = if value.fract() == 0.0 {
-                    format_args!("{value:.1}")
-                } else {
-                    format_args!("{value}")
-                };
-                format!("const {name} = {val_str};")
-            })
+            .map(|(name, value)| format!("const {name} = {value};"))
             .join("\n")
     }
 }
