@@ -606,4 +606,95 @@ mod test {
             "m6"
         );
     }
+
+    #[test]
+    /// Test WGSL type casting of virtual constants
+    fn type_virtual_constants() {
+        // standard resolver to register some constants
+        let mut std = StandardResolver::new(".");
+        // AbstractFloat
+        std.add_constant("TAU", std::f64::consts::TAU.into());
+        // f32
+        std.add_constant("LIGHTING_ANGLE", 10.0f32.into());
+        // i32
+        std.add_constant("Z_ROTATION", (-10i32).into());
+        // u32
+        std.add_constant("H", (12u32).into());
+        // bool
+        std.add_constant("BRIGHTEN", (false).into());
+
+        // use virtual resolver for the main module
+        let mut v = VirtualResolver::new();
+        v.add_module(
+            "package::color_math".parse().unwrap(),
+            // the main module imports constants::TAU and uses it in a context that requires f32,
+            // therfor it will be cast from AbstractFloat
+            r#"
+            import constants::{TAU, H, BRIGHTEN};
+
+            fn color_sweep(h: u32) -> f32 {
+                let color = cos(h + vec3(0.0, 1.0, 2.0) * TAU / 3.0);
+                if (BRIGHTEN) {
+                    color += 0.1;
+                }
+
+                return color;
+            }
+
+            @fragment
+            fn fragment(
+                in: VertexOutput,
+            ) -> @location(0) vec4<f32> {
+                return vec(color_sweep(H), color_sweep(H + 0.1), color_sweep(H + 0.2), 1.0);
+            }
+            "#.into(),
+        );
+
+        // route package imports whose prefix is "constants" to the StandardResolver
+        // and absolute module paths to the VirtualResolver.
+        let mut r = Router::new();
+        r.mount_resolver("constants".parse().unwrap(), std);
+        r.mount_resolver(ModulePath::new_root(), v);
+ 
+        // compile to test imports and casting
+        crate::Wesl::new(".").set_custom_resolver(r)
+            .compile(&"package::color_math".parse().unwrap()).unwrap();
+    }
+
+    #[test]
+    /// Test resolving virtual constants from `add_constant`
+    fn resolve_virtual_constants() {
+        // todo impl `add_constant` for VirtualResolver then use that
+        let mut sr = StandardResolver::new(".");
+
+        // add math constants
+        sr.add_constant("PI", LiteralInstance::from(std::f64::consts::PI));
+        sr.add_constant("E", LiteralInstance::from(std::f64::consts::E));
+        // add misc constants
+        sr.add_constant("NEG_2", LiteralInstance::from(-2i32));
+        sr.add_constant("ONE", LiteralInstance::from(1u32));
+        sr.add_constant("F32_MAX", LiteralInstance::from(std::f32::MAX));
+        sr.add_constant("IS_HEAVY", LiteralInstance::from(false));
+        sr.add_constant("NUM_CONSTS", LiteralInstance::from(sr.constants.len() as i64));
+
+        // generate the virtual module
+        let generated = sr.generate_constant_module();
+        // test that it contains the consts with correct values
+        assert!(generated.contains(&format!("const PI = {:?};", std::f64::consts::PI)));
+        assert!(generated.contains(&format!("const E = {:?};", std::f64::consts::E)));
+        assert!(generated.contains("const NEG_2 = -2i;"));
+        assert!(generated.contains("const ONE = 1u;"));
+        assert!(generated.contains(&format!("const F32_MAX = {}f;", std::f32::MAX)));
+        assert!(generated.contains("const IS_HEAVY = false;"));
+        assert!(generated.contains(&format!("const NUM_CONSTS = {};", (sr.constants.len() as i64) - 1)));
+
+        // resolve the package path with the origin `constants`,
+        // the source of which should be the same as the generated module
+        let src_root = sr.resolve_source(&"constants".parse().unwrap()).unwrap();
+        assert_eq!(src_root, generated);
+
+        // resolving a path with components should return the same
+        let src_comp = sr.resolve_source(&"constants::PI".parse().unwrap()).unwrap();
+        assert_eq!(src_comp, generated);
+    }
 }
