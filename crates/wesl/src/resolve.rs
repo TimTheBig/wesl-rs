@@ -490,8 +490,9 @@ impl StandardResolver {
     /// *virtual*, meaning it doesn't exist on the filesystem. Constants can be accessed
     /// by importing them: `import constants::MY_CONSTANT;`.
     ///
-    /// The type is specified by the variant of [`LiteralInstance`].
-    /// If specifying a constant that is used with multiple different types or a math constant use AbstractFloat,
+    /// The type is specified by the variant of [`LiteralInstance`].\
+    /// If specifying a constant that is used with multiple different types or
+    /// a constant that benefits from precision, like π, use AbstractFloat,
     /// which can be implicitly converted to all scalar types.
     ///
     /// Note: [`LiteralInstance`] implements [`From`] for all standard numeric types
@@ -499,7 +500,7 @@ impl StandardResolver {
         self.constants.insert(name.to_string(), value);
     }
 
-    // todo add more tests
+    /// Generate a module with all declared virtual constants in the resolver
     fn generate_constant_module(&self) -> String {
         self.constants
             .iter()
