@@ -653,9 +653,7 @@ mod test {
             }
 
             @fragment
-            fn fragment(
-                in: VertexOutput,
-            ) -> @location(0) vec4<f32> {
+            fn fragment() -> @location(0) vec4<f32> {
                 return vec4(color_sweep(H), color_sweep(H + 0.1), color_sweep(H + 0.2), 1.0);
             }
             "#
