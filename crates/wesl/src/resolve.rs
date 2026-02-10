@@ -276,10 +276,12 @@ impl<R: Resolver, F: ResolveFn> Resolver for Preprocessor<R, F> {
 /// This resolver is not thread-safe (not [`Send`] or [`Sync`]).
 pub struct Router {
     mount_points: Vec<(ModulePath, Box<dyn Resolver>)>,
-    fallback: Option<(ModulePath, Box<dyn Resolver>)>,
+    fallback: Option<Box<dyn Resolver>>,
 }
 
 /// Dispatches resolution of a module path to sub-resolvers.
+///
+/// See documentation in [`Self::mount_resolver`]
 impl Router {
     /// Create a new resolver.
     pub fn new() -> Self {
@@ -294,32 +296,41 @@ impl Router {
     /// All import paths starting with `prefix` will be dispatched to the resolver with
     /// the suffix of the path. The prefix path must have an `Absolute` or `Package`
     /// origin and the suffix path will be given an `Absolute` origin.
+    ///
+    /// If none of the `prefix`es match, the fallback resolver will be used.
     pub fn mount_resolver(&mut self, prefix: ModulePath, resolver: impl Resolver + 'static) {
         self.mount_points.push((prefix, Box::new(resolver)));
     }
 
     /// Mount a fallback resolver that is used when no other prefix match.
     pub fn mount_fallback_resolver(&mut self, resolver: impl Resolver + 'static) {
-        self.fallback = Some((ModulePath::new_root(), Box::new(resolver)));
+        self.fallback = Some(Box::new(resolver));
     }
 
     fn route(&self, path: &ModulePath) -> Result<(&dyn Resolver, ModulePath), ResolveError> {
-        let (mount_path, resolver) = self
+        if let Some((mount_path, resolver)) = self
             .mount_points
             .iter()
             .filter(|(prefix, _)| path.starts_with(prefix))
             .max_by_key(|(prefix, _)| prefix.components.len())
-            .or(self.fallback.as_ref())
-            .ok_or_else(|| E::ModuleNotFound(path.clone(), "no mount point".to_string()))?;
+        {
+            let components = path
+                .components
+                .iter()
+                .skip(mount_path.components.len())
+                .cloned()
+                .collect_vec();
 
-        let components = path
-            .components
-            .iter()
-            .skip(mount_path.components.len())
-            .cloned()
-            .collect_vec();
-        let suffix = ModulePath::new(PathOrigin::Absolute, components);
-        Ok((resolver, suffix))
+            let suffix = ModulePath::new(PathOrigin::Absolute, components);
+            Ok((resolver, suffix))
+        } else if let Some(resolver) = &self.fallback {
+            Ok((resolver, path.clone()))
+        } else {
+            Err(E::ModuleNotFound(
+                path.clone(),
+                "no mount point".to_string(),
+            ))
+        }
     }
 }
 
@@ -645,20 +656,23 @@ mod test {
             fn fragment(
                 in: VertexOutput,
             ) -> @location(0) vec4<f32> {
-                return vec(color_sweep(H), color_sweep(H + 0.1), color_sweep(H + 0.2), 1.0);
+                return vec4(color_sweep(H), color_sweep(H + 0.1), color_sweep(H + 0.2), 1.0);
             }
-            "#.into(),
+            "#
+            .into(),
         );
 
         // route package imports whose prefix is "constants" to the StandardResolver
         // and absolute module paths to the VirtualResolver.
         let mut r = Router::new();
-        r.mount_resolver("constants".parse().unwrap(), std);
         r.mount_resolver(ModulePath::new_root(), v);
- 
+        r.mount_fallback_resolver(std);
+
         // compile to test imports and casting
-        crate::Wesl::new(".").set_custom_resolver(r)
-            .compile(&"package::color_math".parse().unwrap()).unwrap();
+        crate::Wesl::new(".")
+            .set_custom_resolver(r)
+            .compile(&"package::color_math".parse().unwrap())
+            .unwrap();
     }
 
     #[test]
@@ -675,7 +689,10 @@ mod test {
         sr.add_constant("ONE", LiteralInstance::from(1u32));
         sr.add_constant("F32_MAX", LiteralInstance::from(std::f32::MAX));
         sr.add_constant("IS_HEAVY", LiteralInstance::from(false));
-        sr.add_constant("NUM_CONSTS", LiteralInstance::from(sr.constants.len() as i64));
+        sr.add_constant(
+            "NUM_CONSTS",
+            LiteralInstance::from(sr.constants.len() as i64),
+        );
 
         // generate the virtual module
         let generated = sr.generate_constant_module();
@@ -686,7 +703,10 @@ mod test {
         assert!(generated.contains("const ONE = 1u;"));
         assert!(generated.contains(&format!("const F32_MAX = {}f;", std::f32::MAX)));
         assert!(generated.contains("const IS_HEAVY = false;"));
-        assert!(generated.contains(&format!("const NUM_CONSTS = {};", (sr.constants.len() as i64) - 1)));
+        assert!(generated.contains(&format!(
+            "const NUM_CONSTS = {};",
+            (sr.constants.len() as i64) - 1
+        )));
 
         // resolve the package path with the origin `constants`,
         // the source of which should be the same as the generated module
@@ -694,7 +714,9 @@ mod test {
         assert_eq!(src_root, generated);
 
         // resolving a path with components should return the same
-        let src_comp = sr.resolve_source(&"constants::PI".parse().unwrap()).unwrap();
+        let src_comp = sr
+            .resolve_source(&"constants::PI".parse().unwrap())
+            .unwrap();
         assert_eq!(src_comp, generated);
     }
 }
