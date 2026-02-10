@@ -595,7 +595,7 @@ mod test {
         r.mount_resolver("package::bar".parse().unwrap(), v2);
 
         let mut v3 = VirtualResolver::new();
-        v3.add_module("package::bar".parse().unwrap(), "m6".into());
+        v3.add_module("foo::bar".parse().unwrap(), "m6".into());
         r.mount_fallback_resolver(v3);
 
         assert_eq!(r.resolve_source(&"package".parse().unwrap()).unwrap(), "m1");
