@@ -685,7 +685,7 @@ mod test {
         // add misc constants
         sr.add_constant("NEG_2", LiteralInstance::from(-2i32));
         sr.add_constant("ONE", LiteralInstance::from(1u32));
-        sr.add_constant("F32_MAX", LiteralInstance::from(std::f32::MAX));
+        sr.add_constant("F32_MAX", LiteralInstance::from(f32::MAX));
         sr.add_constant("IS_HEAVY", LiteralInstance::from(false));
         sr.add_constant(
             "NUM_CONSTS",
@@ -699,7 +699,7 @@ mod test {
         assert!(generated.contains(&format!("const E = {:?};", std::f64::consts::E)));
         assert!(generated.contains("const NEG_2 = -2i;"));
         assert!(generated.contains("const ONE = 1u;"));
-        assert!(generated.contains(&format!("const F32_MAX = {}f;", std::f32::MAX)));
+        assert!(generated.contains(&format!("const F32_MAX = {}f;", f32::MAX)));
         assert!(generated.contains("const IS_HEAVY = false;"));
         assert!(generated.contains(&format!(
             "const NUM_CONSTS = {};",

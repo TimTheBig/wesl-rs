@@ -7,7 +7,7 @@
 use std::{ffi::OsStr, path::PathBuf, process::Command, str::FromStr};
 
 use wesl::{
-    syntax::*, validate_wesl, CompileOptions, EscapeMangler, NoMangler, SyntaxUtil, VirtualResolver,
+    CompileOptions, EscapeMangler, NoMangler, SyntaxUtil, VirtualResolver, syntax::*, validate_wesl,
 };
 use wesl_test::schemas::*;
 
