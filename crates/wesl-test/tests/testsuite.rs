@@ -7,7 +7,7 @@
 use std::{ffi::OsStr, path::PathBuf, process::Command, str::FromStr};
 
 use wesl::{
-    CompileOptions, EscapeMangler, NoMangler, SyntaxUtil, VirtualResolver, syntax::*, validate_wesl,
+    syntax::*, validate_wesl, CompileOptions, EscapeMangler, NoMangler, SyntaxUtil, VirtualResolver,
 };
 use wesl_test::schemas::*;
 
@@ -438,18 +438,6 @@ pub fn bevy_case(path: PathBuf) -> Result<(), libtest_mimic::Failed> {
             ("TONEMAPPING_LUT_TEXTURE_BINDING_INDEX", 10.into()),
             ("TONEMAPPING_LUT_SAMPLER_BINDING_INDEX", 10.into()),
         ])
-        .add_constant(
-            // AbstractFloat for add_constant testing
-            "TAU", std::f64::consts::TAU.into(),
-        )
-        .add_constant(
-            // unused f32 just here for add_constant testing
-            "LIGHTING_ANGLE", 10.0f32.into(),
-        )
-        .add_constant(
-            // unused i32 just here for add_constant testing
-            "Z_ROTATION", (-10i32).into(),
-        )
         .set_options(CompileOptions {
             strip: false,
             lower: true,
